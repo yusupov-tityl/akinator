@@ -2943,7 +2943,7 @@ function prefetchDeep(pid){
   st.ov.deepP=st.ov.deepP||{};
   if(st.ov.deepP[pid]) return st.ov.deepP[pid];
   const tok=OVT, org=st.org;
-  return st.ov.deepP[pid]=staticAd(`deep/${org}__${pid}`,3000).then(pre=>pre||(CONFIG.llm?adapt("deep",{
+  return st.ov.deepP[pid]=staticAd(`deep/${org}__${pid}`,3000).then(pre=>pre||(false?adapt("deep",{
     ctx:{org:label(F.org_types,org),problem:(PB[pid]||{}).label},
     causes:F.causes.filter(c=>c.problem===pid).map(c=>({id:c.id,text:c.label})),
     needs:needsFor(pid).map(n=>({id:n.code,text:n.label})),
@@ -3156,10 +3156,9 @@ function result(){
     ${(vp||imp.length)?`<div class="why" style="margin:0 0 16px"><b>Что изменится:</b> ${esc(vp||"")}${imp.length?` Сейчас из-за этой проблемы у вас: ${esc(imp.join(", "))}.`:""}</div>`:""}
     ${list.length?"":`<div class="why" style="margin:0 0 16px"><b>Готового агента под эту задачу у нас пока нет.</b> Такого агента собирают за пилот 4–8 недель. Оставьте контакт — обсудим.</div>`}${list.map((a,i)=>card(a,i,p)).join("")}
     ${extra.length?`<div class="sec">А ещё вы отметили</div>${extra.map(x=>`<div class="mk"><div class="v">${esc(PB[x.id].label)}</div><h4>${esc(x.a.name)}</h4><p>${esc(x.a.tagline||"")}</p></div>`).join("")}`:""}
-    <div class="row" style="margin-top:16px">${KIOSK?"":`<button class="btn ghost" id="copy">Скопировать</button>`}${KIOSK?"":`<a class="btn ghost" href="tel:${PHONE}">Позвонить</a>`}</div>
-    <div style="margin-top:10px"><button class="btn ghost" id="again" style="width:100%">Пройти ещё раз</button></div>
+    <div style="margin-top:16px"><button class="btn ghost" id="again" style="width:100%">Пройти ещё раз</button></div>
     ${KIOSK?qrBlock(resultUrl(),"Заберите результат на телефон","Наведите камеру телефона на код."):""}
-    <div class="stick">${KIOSK?`<button class="btn pri" id="lead">Получить разбор и обсудить пилот</button>`:`<a class="btn pri" href="https://t.me/${TG}?text=${encodeURIComponent(summary)}" target="_blank" rel="noopener">Обсудить пилот в Telegram</a>`}</div>
+    <div class="stick"><button class="btn pri" id="lead">Оставить контакт для обсуждения</button></div>
     ${e?`<p class="small">Как считали: ${e.base} чел. × доля рутины ${Math.round(e.share*100)}% × доля, которую берёт агент ${Math.round(e.real*100)}% × готовность данных ${Math.round(e.ready*100)}% × зарплата с взносами ≈ ${fmtRub(e.rate)}/мес. Это оценка с разбросом ±30%. Точную цифру даст обследование.</p>`:""}`);
   celebrate(1); countUp();
   const cp=document.getElementById("copy"); if(cp) cp.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(summary).then(()=>toast("Скопировано"));
@@ -3184,7 +3183,7 @@ function partnerEnd(ans){
   const pb=F.partner_branch||{}; const msg=(pb.message||"Здравствуйте! Мы с CNews FORUM. Хотим обсудить партнёрство с Ай-Титул.")+"\n"+Object.entries(ans).map(([k,v])=>{ const q=(pb.questions||[]).find(x=>x.id===k)||{}; return (q.text||k)+" "+v.map(c=>((q.options||[]).find(o=>o.code===c)||{}).label||c).join(", "); }).join("\n");
   show(`${genie("happy","confident")}<h1>Давайте <em>делать пилоты вместе</em></h1>
     <p class="lead">Мы обследуем процессы крупных заказчиков и встраиваем ИИ-агентов поверх их систем: СЭД, 1С, ГИС, SCADA. Обсудим совместные пилоты и интеграции.</p>
-    ${KIOSK?`<button class="btn pri" id="lead">Оставить контакт</button>`:`<a class="btn pri" href="https://t.me/${TG}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Написать в Telegram</a>`}
+    <button class="btn pri" id="lead">Оставить контакт</button>
     <div style="margin-top:10px"><button class="btn ghost" id="again" style="width:100%">Пройти как заказчик</button></div>`);
   document.getElementById("again").onclick=()=>{ reset(); go(stepOrg); };
   const ld=document.getElementById("lead"); if(ld) ld.onclick=()=>go(()=>contactForm({kind:"partner",ans}));
@@ -3329,7 +3328,7 @@ function qrBlock(url,title,sub){ try{ return `<div class="qrbox"><div class="qr"
 
 /* --- форма контакта --- */
 function contactForm(o){
-  show(`${genie("happy","phone")}<div class="bubble"><div class="qn">Контакт</div><p class="qt">${o.kind==="partner"?"Оставьте контакт — обсудим партнёрство.":o.kind==="free"?"Оставьте контакт — мы перезвоним.":"Оставьте контакт — пришлём разбор и обсудим пилот."}</p></div>
+  show(`${genie("happy","phone")}<div class="bubble"><div class="qn">Контакт</div><p class="qt">${o.kind==="partner"?"Оставьте контакт — обсудим партнёрство.":o.kind==="free"?"Оставьте контакт — мы перезвоним.":"Оставьте контакт — обсудим вашу задачу и пилот."}</p></div>
     <div class="form">
       <label class="fld"><span>ФИО</span><input id="f_name" autocomplete="off" maxlength="120" placeholder="Иванов Иван Иванович"></label>
       <label class="fld"><span>Компания</span><input id="f_comp" autocomplete="off" maxlength="120" placeholder="Название организации"></label>
