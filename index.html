@@ -2760,7 +2760,7 @@ const PB=Object.fromEntries(F.problems.map(p=>[p.id,p]));
 const CONFIG={llm:DATA.llm||"https://itityl.ru/api/genie"};   // посредник Sonnet на сервере сайта; нет ответа — работаем на банке          // адрес посредника LLM; null — работаем на банке
 const SCALE_OPTS=[["До 5",3],["6–20",12],["21–50",35],["51–150",100],["Больше 150",200]];
 let st, stack=[], OVT=0;
-function reset(){ OVT++; st={ov:{q:{},label:{},cause:{},causesTitle:"",deepFor:null,needs:null,impacts:null,systems:null},org:null,role:null,fn:null,fnId:null,list:[],scr:{},primary:null,tried:[],causes:[],needs:[],impacts:[],contour:null,data:null,systems:[],extra:[],main:null,scale:null}; stack=[]; }
+function reset(){ OVT++; IVC.clear(); st={final:null,ivHist:[],ov:{q:{},label:{},cause:{},causesTitle:"",deepFor:null,needs:null,impacts:null,systems:null},org:null,role:null,fn:null,fnId:null,list:[],scr:{},primary:null,tried:[],causes:[],needs:[],impacts:[],contour:null,data:null,systems:[],extra:[],main:null,scale:null}; stack=[]; }
 const okOrg=x=>!x||x==="all"||x.includes(st.org);
 const orgT=()=>F.org_types.find(o=>o.code===st.org)||{maps_to:[]};
 function lc(s){ if(!s) return s; const b=s[1]; return (b&&b!==b.toLowerCase())?s:s[0].toLowerCase()+s.slice(1); }
@@ -2793,6 +2793,7 @@ function choice(o){
       else [...sel].forEach(f=>{ const of=o.opts.find(x=>x.code===f)||{}; if(of.excl||CONFLICT.has(c+"|"+f)) unpick(f); });
       if(o.max&&sel.size>=o.max){ const f=[...sel][0]; sel.delete(f); app.querySelector(`.ans[data-c="${CSS.escape(f)}"]`)?.classList.remove("picked"); } sel.add(c); b.classList.add("picked"); nod(); }
     document.getElementById("next").disabled=!sel.size;
+    if(o.onChange) o.onChange([...sel]);
   });
   const nx=document.getElementById("next"); if(nx) nx.onclick=()=>o.done([...sel]);
   const sk=document.getElementById("skip"); if(sk) sk.onclick=()=>o.done([]);
@@ -2834,9 +2835,10 @@ function screen(i){
 /* ---------- 3. приоритет: что главное ---------- */
 function prioritize(){
   const conf=Object.entries(st.scr).filter(([id,v])=>v>=.7&&!st.tried.includes(id)).sort((a,b)=>b[1]-a[1]||PB[b[0]].priority-PB[a[0]].priority).map(x=>x[0]);
-  if(conf.length===1){ st.primary=conf[0]; st.causes=[]; return pass(causes1); }
+  if(conf.length===1){ st.primary=conf[0]; st.causes=[]; st.final=null; return pass(startDeep); }
+  if(CONFIG.llm) conf.slice(0,4).forEach(id=>ivFetch([],id));           // интервью по каждой задаче готовим заранее
   if(conf.length>=2) return choice({kicker:"Главное",multi:true,title:"Что из этого съедает больше всего времени?",hint:"Можно несколько. Подробно разберу первую отмеченную",pose:"sly",
-    opts:conf.map(id=>({code:id,label:plabel(id)})), done:ids=>{ st.picked=ids; st.primary=ids[0]; st.causes=[]; st.badCauses=[]; go(causes1); }});
+    opts:conf.map(id=>({code:id,label:plabel(id)})), done:ids=>{ st.picked=ids; st.primary=ids[0]; st.causes=[]; st.badCauses=[]; st.final=null; go(startDeep); }});
   // ничего не подтвердили — даём выбрать из более широкого списка
   const more=F.problems.filter(p=>p.functions.includes(st.fn)&&okOrg(p.org_types)&&!st.tried.includes(p.id)&&st.scr[p.id]!==0).sort((a,b)=>b.priority-a.priority).slice(0,6);
   const opts=more.map(p=>({code:p.id,label:p.label}));
@@ -2844,7 +2846,7 @@ function prioritize(){
   opts.push({code:"#fn",label:"Другое подразделение"});
   choice({kicker:"Хм",title:"Тогда что из этого ближе всего?",pose:"surprised",opts,
     done:([id])=>{ if(id==="#fn") return go(stepFn); if(id==="#best"){ st.primary=st.tried[0]; st.main=agentsFor(st.primary)[0]||null; return go(stepScale); }
-      st.primary=id; st.causes=[]; st.scr[id]=st.scr[id]||.7; go(causes1); }});
+      st.primary=id; st.causes=[]; st.final=null; st.scr[id]=st.scr[id]||.7; go(startDeep); }});
 }
 
 /* ---------- 4. причины: «почему» → «в чём именно» ---------- */
@@ -2967,6 +2969,71 @@ async function adaptDeep(){
   return true;
 }
 
+
+/* ======================= ИНТЕРВЬЮ SONNET =======================
+   После выбора главной задачи вопросы и варианты ответов пишет Sonnet (POST /api/genie, task "next").
+   Агентов предлагает только из разрешённого списка (привязка рутин → агенты), сервер это проверяет.
+   Пока посетитель читает вопрос, следующий шаг для каждого варианта уже запрошен (предзагрузка).
+   Нет ответа от Sonnet на первом шаге — работаем по банку вопросов (causes1 и далее). */
+const IVC=new Map();
+function allowedAgents(pid){
+  const ids=[]; const from=[pid||st.primary,...(st.picked||[]),...Object.keys(st.scr).filter(id=>st.scr[id]>=.7)];
+  from.forEach(pid=>((AMAP[pid]||{}).agents||[]).forEach(id=>{ if(!ids.includes(id)) ids.push(id); }));
+  return ids.map(id=>AGO.find(a=>a.id===id)).filter(Boolean).map(a=>({id:a.id,name:a.name,what:a.tagline||""}));
+}
+function ivBody(hist,pid){
+  return {ctx:{org:label(F.org_types,st.org),department:fnLabel(),problem:plabel(pid),
+      alsoConfirmed:Object.keys(st.scr).filter(id=>st.scr[id]>=.7&&id!==pid).map(plabel)},
+    bank:{causes:F.causes.filter(c=>c.problem===pid).map(c=>c.label),needs:F.needs.map(n=>n.label),
+      impacts:F.impacts.filter(n=>!n.excl).map(n=>n.label),systemClasses:F.constraints.systems.filter(x=>okOrg(x.org_types)&&!x.excl&&x.code!=="own").map(x=>x.label)},
+    agents:allowedAgents(pid),history:hist};
+}
+function ivFetch(hist,pid){
+  pid=pid||st.primary; const k=JSON.stringify([OVT,st.org,pid,hist]);
+  if(!IVC.has(k)) IVC.set(k,adapt("next",ivBody(hist,pid),30000));
+  return IVC.get(k);
+}
+function startDeep(){ if(!CONFIG.llm) return pass(causes1); pass(()=>interview([])); }
+async function interview(hist){
+  const tok=OVT, self=stack[stack.length-1], pid=st.primary;
+  const p=ivFetch(hist); let r=await Promise.race([p,new Promise(z=>setTimeout(()=>z("wait"),120))]);
+  if(r==="wait"){ thinking(); r=await p; }
+  if(tok!==OVT||st.primary!==pid||stack[stack.length-1]!==self) return;
+  if(!r||(!r.question&&!r.final)){ return hist.length?pass(hypothesis):pass(causes1); }   // запасной путь — банк вопросов
+  if(r.question){
+    const q=r.question;
+    choice({kicker:`Уточню · ${hist.length+1}`,title:q.text,hint:q.multi?"Можно несколько":"",pose:hist.length%2?"think1":"think2",multi:!!q.multi,
+      opts:q.options.map(o=>({code:o.id,label:o.text,excl:o.excl})),
+      onChange:ids=>{ clearTimeout(window.__ivT); if(!ids.length) return; window.__ivT=setTimeout(()=>ivFetch(hist.concat([{q:q.text,a:ids.map(id=>(q.options.find(o=>o.id===id)||{}).text).filter(Boolean)}])),500); },
+      done:ids=>{ const a=ids.map(id=>(q.options.find(o=>o.id===id)||{}).text).filter(Boolean); go(()=>interview(hist.concat([{q:q.text,a}]))); }});
+    if(!q.multi) q.options.forEach(o=>ivFetch(hist.concat([{q:q.text,a:[o.text]}])));     // предзагрузка следующего шага
+    return;
+  }
+  st.final=r.final; st.ivHist=hist;
+  finalHypothesis(hist);
+}
+function finalHypothesis(hist){
+  const fin=st.final, list=fin.agents.map(id=>AGO.find(a=>a.id===id)).filter(Boolean); st.list3=list; const top=list[0]||null;
+  show(`${genie("happy","sly")}<div class="bubble guess"><div class="qn">Моя гипотеза</div>
+      <p class="tl" style="font-size:16px;color:var(--text);line-height:1.55">${esc(fin.hypothesis)}</p>
+      ${top?`<div class="name gt" style="margin-top:14px">${esc(top.name)}</div><p class="tl">${esc(top.tagline||"")}</p>`:""}
+      ${fin.benefit?`<p class="qh" style="margin-top:10px">${esc(fin.benefit)}</p>`:""}</div>
+    <div class="answers"><button class="ans y" id="yes">${top?"Да, в точку":"Да, запишите задачу"}</button><div class="${list.length>1?"grid2":""}">${list.length>1?`<button class="ans" id="almost">Частично</button>`:""}<button class="ans" id="no">Нет, не то</button></div></div>
+    <div class="under">${backLink()}<span></span></div>`);
+  bindBack(); celebrate(.5);
+  const more=hist.concat([{q:"Гипотеза джинна",a:["Гипотеза не подходит"]}]);
+  if(hist.length<7) ivFetch(more);                                                   // предзагрузка на случай «Нет»
+  document.getElementById("yes").onclick=()=>{ st.main=top; go(stepScale); };
+  const al=document.getElementById("almost"); if(al) al.onclick=()=>go(()=>choice({kicker:"Уточним",title:"Что из этого ближе?",pose:"think2",
+    opts:[...list.map(a=>({code:a.id,label:a.name,sub:a.tagline})),{code:"#none",label:"Ничего не подходит"}],
+    done:([id])=>{ if(id==="#none") return go(()=>interview(more)); st.main=AGO.find(a=>a.id===id); go(stepScale); }}));
+  document.getElementById("no").onclick=()=>go(()=>choice({kicker:"Хм",title:"Что не так?",pose:"surprised",
+    opts:[...(hist.length<7?[{code:"more",label:"Уточните ещё",sub:"Джинн задаст пару вопросов и предложит другое"}]:[]),
+      {code:"task",label:"Задача другая",sub:"Выберем другую задачу"},{code:"home",label:"Начать заново"}],
+    done:([c])=>{ if(c==="home"){ reset(); return intro(); } if(c==="more") return go(()=>interview(more));
+      st.tried.push(st.primary); st.final=null; go(prioritize); }}));
+}
+
 /* ---------- профиль и подсчёт ---------- */
 function addW(sc,w,k){ if(!w) return; for(const c in w){ sc[c]=sc[c]||{}; for(const t in w[c]) sc[c][t]=(sc[c][t]||0)+w[c][t]*k; } }
 function profile(primary){
@@ -3069,14 +3136,14 @@ function whyText(a,p){
 }
 function result(){
   if(!st.primary||!PB[st.primary]) return go(prioritize);
-  const sc=profile(), p=sets(sc), cand=agentsFor(st.primary);
+  const sc=profile(), p=sets(sc), cand=st.final?st.final.agents.map(id=>AGO.find(a=>a.id===id)).filter(Boolean):agentsFor(st.primary);
   const main=st.main||null; const list=main?[main,...cand.filter(a=>a.id!==main.id)].slice(0,3):[];
   // а ещё: другие подтверждённые рутины
   const others=[...new Set([...(st.picked||[]),...Object.entries(st.scr).filter(([id,v])=>v>=.7).map(([id])=>id)])].filter(id=>id!==st.primary&&!st.tried.includes(id)).slice(0,3);
   const used=new Set(list.map(a=>a.id));
   const extra=others.map(id=>{ const best=agentsFor(id).find(a=>!used.has(a.id)); if(best) used.add(best.id); return best?{id,a:best}:null; }).filter(Boolean);
   const e=estimate(); const imp=st.impacts.filter(c=>c!=="unknown").map(c=>lc(label(F.impacts,c)));
-  const vp=benefitFor(st.primary);
+  const vp=(st.final&&st.final.benefit)||benefitFor(st.primary);
   const summary=["Здравствуйте! Пишу после квиза «ИИ-джинн» на CNews FORUM.","Организация: "+label(F.org_types,st.org),
     "Главная задача: "+PB[st.primary].label, list.length?("Джинн подобрал: "+list.map(a=>a.name).join(", ")):"Готового агента нет, хочу обсудить разработку под задачу",
     e?("Оценка эффекта: "+fmtRange(e.rubLo,e.rubHi)+"/год"):"", imp.length?("Сейчас из-за этого у нас: "+imp.join(", ")):"", "Хочу обсудить пилот."].filter(Boolean).join("\n");
@@ -3314,7 +3381,9 @@ function leadText(o){
     `Отрасль: ${label(F.org_types,st.org)}`,
     `Подразделение: ${(F.functions.find(f=>f.id===st.fnId)||{}).label||""}`,
     `Главная задача: ${PB[st.primary].label}`,
+    st.final&&st.final.problem?`Проблема (по итогам интервью): ${st.final.problem}`:"",
     cs.length?`Причины: ${cs.join("; ")}`:"",
+    ...(st.ivHist||[]).map(h=>`— ${h.q} ${h.a.join(", ")}`),
     st.needs.length?`Важно: ${st.needs.map(x=>label(F.needs,x)).join(", ")}`:"",
     o.imp&&o.imp.length?`Цена проблемы: ${o.imp.join(", ")}`:"",
     st.contour?`Контур: ${label(F.constraints.contour,st.contour)}`:"",
