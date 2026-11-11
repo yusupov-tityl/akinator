@@ -2,7 +2,7 @@
 
 Квиз «Загадайте задачу — джинн угадает ИИ-агента» для стенда Ай-Титул на CNews FORUM 2026.
 
-Открыть: https://yusupov-tityl.github.io/akinator/ (позже — https://genie.itityl.ru)
+Открыть: https://genie.itityl.ru (на планшетах стенда — https://genie.itityl.ru/?kiosk=1)
 
 Как работает:
 - джинн задаёт вопросы о проблемах в работе: симптомы, причины, контекст, системы;
