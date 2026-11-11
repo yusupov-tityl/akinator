@@ -2960,7 +2960,7 @@ function finalHypothesis(hist){
   show(`${genie("happy","sly")}<div class="bubble guess"><div class="qn">Моя гипотеза</div>
       <p class="tl" style="font-size:16px;color:var(--text);line-height:1.55">${esc(fin.hypothesis)}</p>
       ${top?`<div class="name gt" style="margin-top:14px">${esc(top.name)}</div><p class="tl">${esc(top.tagline||"")}</p>`
-           :`<p class="tl" style="margin-top:14px">Готового агента под эту задачу у нас пока нет. Такого агента собирают за пилот — оставьте контакт, обсудим.</p>`}
+           :(/агента[^.]*нет|нет[^.]*агента/i.test(fin.hypothesis)?"":`<p class="tl" style="margin-top:14px">Готового агента под эту задачу у нас пока нет. Такого агента собирают за пилот — оставьте контакт, обсудим.</p>`)}
       ${fin.benefit?`<p class="qh" style="margin-top:10px">${esc(fin.benefit)}</p>`:""}</div>
     <div class="answers"><button class="ans y" id="yes">${top?"Да, в точку":"Да, запишите задачу"}</button><div class="${list.length>1?"grid2":""}">${list.length>1?`<button class="ans" id="almost">Частично</button>`:""}<button class="ans" id="no">Нет, не то</button></div></div>
     <div class="under">${backLink()}<span></span></div>`);
