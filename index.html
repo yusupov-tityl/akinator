@@ -108,7 +108,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;ma
 .logo{font-family:Unbounded,Manrope,sans-serif;font-weight:800;letter-spacing:.02em;font-size:19px;display:flex;align-items:center;gap:9px;text-shadow:0 0 24px rgba(255,205,60,.25)}
 .logo i{display:inline-block;width:4px;height:22px;background:var(--gold);border-radius:2px;box-shadow:0 0 14px rgba(255,205,60,.7);animation:blinkbar 2.4s ease-in-out infinite}
 @keyframes blinkbar{0%,100%{opacity:1}50%{opacity:.45}}
-.site{font-size:11px;letter-spacing:.24em;font-weight:800;text-transform:uppercase;text-decoration:none;color:var(--g2);padding:8px 12px;border:1px solid var(--line2);border-radius:999px;background:rgba(255,205,60,.05);backdrop-filter:blur(8px)}
+.site{font-family:inherit;font-size:11px;letter-spacing:.24em;font-weight:800;text-transform:uppercase;text-decoration:none;color:var(--g2);padding:8px 12px;border:1px solid var(--line2);border-radius:999px;background:rgba(255,205,60,.05);backdrop-filter:blur(8px)}
 .event{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);font-weight:700;display:none}
 @media (min-width:860px){.event{display:block}}
 
@@ -349,7 +349,7 @@ l-1 537 -110 0 c-60 0 -110 -1 -110 -2z"/>
 l0 822 -290 0 c-159 0 -290 -2 -290 -3z"/>
 <path d="M3520 5120 l0 -100 205 0 205 0 0 100 0 100 -205 0 -205 0 0 -100z"/>
 </g>
-</svg><span class="logo-cursor" aria-hidden="true"></span></a><span class="event">CNews FORUM 2026</span><a class="site" href="https://itityl.ru" target="_blank" rel="noopener">itityl.ru</a></header>
+</svg><span class="logo-cursor" aria-hidden="true"></span></a><span class="event">CNews FORUM 2026</span><button class="site" id="hdrContact" type="button" style="cursor:pointer">Связаться</button></header>
   <div class="stage"><div id="genie" class="genie"><svg viewBox="0 0 300 440" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
 <defs>
  <linearGradient id="sk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset="1" stop-color="#3f8fe6"/></linearGradient>
@@ -3180,11 +3180,11 @@ function qrBlock(url,title,sub){ try{ return `<div class="qrbox"><div class="qr"
 
 /* --- форма контакта --- */
 function contactForm(o){
-  show(`${genie("happy","phone")}<div class="bubble"><div class="qn">Контакт</div><p class="qt">${o.kind==="partner"?"Оставьте контакт — обсудим партнёрство.":"Оставьте контакт — пришлём разбор и обсудим пилот."}</p></div>
+  show(`${genie("happy","phone")}<div class="bubble"><div class="qn">Контакт</div><p class="qt">${o.kind==="partner"?"Оставьте контакт — обсудим партнёрство.":o.kind==="free"?"Оставьте контакт — мы перезвоним.":"Оставьте контакт — пришлём разбор и обсудим пилот."}</p></div>
     <div class="form">
-      <label class="fld"><span>Имя</span><input id="f_name" autocomplete="off" maxlength="80" placeholder="Как к вам обращаться"></label>
+      <label class="fld"><span>ФИО</span><input id="f_name" autocomplete="off" maxlength="120" placeholder="Иванов Иван Иванович"></label>
       <label class="fld"><span>Компания</span><input id="f_comp" autocomplete="off" maxlength="120" placeholder="Название организации"></label>
-      <label class="fld"><span>Телефон или email</span><input id="f_cont" autocomplete="off" maxlength="120" inputmode="email" placeholder="+7 900 000-00-00 или name@company.ru"></label>
+      <label class="fld"><span>Телефон</span><input id="f_cont" type="tel" inputmode="tel" autocomplete="off" maxlength="18" placeholder="+7 (900) 000-00-00"></label>
       <label class="consent"><input type="checkbox" id="f_ok"><span>Я согласен на обработку моих данных ООО «Ай-Титул», чтобы со мной связались по итогам квиза. <a href="#" id="f_more">Подробнее</a></span></label>
       <div class="err" id="f_err"></div>
       <button class="btn pri" id="f_send">Отправить</button>
@@ -3193,22 +3193,28 @@ function contactForm(o){
   bindBack();
   document.getElementById("f_more").onclick=ev=>{ ev.preventDefault(); const m=document.createElement("div"); m.className="modal";
     m.innerHTML=`<div><h3>Согласие на обработку персональных данных</h3>
-      <p>Оператор — ООО «Ай-Титул» (itityl.ru). Мы получаем имя, название компании, телефон или email и ваши ответы в квизе.</p>
+      <p>Оператор — ООО «Ай-Титул» (itityl.ru). Мы получаем ФИО, название компании, телефон и ваши ответы в квизе.</p>
       <p>Цель — связаться с вами по итогам квиза и обсудить пилот. Мы не передаём данные третьим лицам и не используем их для рассылок.</p>
-      <p>Срок хранения — до отзыва согласия, но не дольше 1 года. Чтобы отозвать согласие, напишите нам через сайт itityl.ru.</p>
+      <p>Срок хранения — до отзыва согласия, но не дольше 1 года. Чтобы отозвать согласие, напишите нам через сайт itityl.ru.</p><p>Полный текст — Политика конфиденциальности на itityl.ru/privacy.</p>
       <button class="btn pri" style="margin-top:8px">Понятно</button></div>`;
     m.onclick=e=>{ if(e.target===m||e.target.tagName==="BUTTON") m.remove(); }; document.body.appendChild(m); };
   const $=id=>document.getElementById(id);
+  const ph=$("f_cont");
+  const fmt=v=>{ let d=v.replace(/\D/g,""); if(!d) return ""; if(d[0]==="8") d="7"+d.slice(1); if(d[0]!=="7") d="7"+d; d=d.slice(0,11);
+    const a=d.slice(1,4),b=d.slice(4,7),c=d.slice(7,9),e=d.slice(9,11);
+    return "+7"+(a?" ("+a:"")+(a.length===3?")":"")+(b?" "+b:"")+(c?"-"+c:"")+(e?"-"+e:""); };
+  ph.addEventListener("focus",()=>{ if(!ph.value) ph.value="+7 "; });
+  ph.addEventListener("input",()=>{ ph.value=fmt(ph.value); });
   $("f_send").onclick=async()=>{
     const name=$("f_name").value.trim(), comp=$("f_comp").value.trim(), cont=$("f_cont").value.trim();
-    const isMail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cont), okCont=isMail||(/^[\d\s()+-]+$/.test(cont)&&cont.replace(/\D/g,"").length>=10);
+    const digits=cont.replace(/\D/g,""), okCont=digits.length===11&&/^[78]/.test(digits);
     [["f_name",!!name],["f_comp",!!comp],["f_cont",okCont]].forEach(([id,ok])=>$(id).classList.toggle("bad",!ok));
-    if(name.length<2||!comp||!okCont){ $("f_err").textContent="Заполните имя, компанию и телефон или email."; return; }
+    if(name.length<3||!comp||!okCont){ $("f_err").textContent="Заполните ФИО, компанию и телефон."; return; }
     if(!$("f_ok").checked){ $("f_err").textContent="Отметьте согласие на обработку данных."; return; }
     $("f_send").disabled=true; $("f_send").textContent="Отправляем…";
-    const body={name,company:comp,consent:true,message:leadText(o).slice(0,4800),source:o.kind==="partner"?"ИИ-джинн, CNews FORUM: партнёр":"ИИ-джинн, CNews FORUM",
+    const body={name,company:comp,consent:true,message:leadText(o).slice(0,4800),source:o.kind==="partner"?"ИИ-джинн, CNews FORUM: партнёр":o.kind==="free"?"ИИ-джинн, CNews FORUM: обратный звонок":"ИИ-джинн, CNews FORUM",
       pageUrl:(st.primary?resultUrl():SITE).slice(0,2000),utmSource:"cnews_forum_2026",utmMedium:KIOSK?"kiosk":"web",utmCampaign:"genie"};
-    if(isMail) body.email=cont; else body.phone=cont;
+    body.phone="+7"+digits.slice(1);
     const q=LQ.get(); q.push({at:Date.now(),body}); LQ.set(q);
     await flushQ(); const left=LQ.get().length;
     go(()=>thanks(left>0));
@@ -3216,6 +3222,7 @@ function contactForm(o){
 }
 function leadText(o){
   const L1=["Квиз «ИИ-джинн» на стенде CNews FORUM."];
+  if(o.kind==="free") return L1.concat(["Посетитель оставил контакт без прохождения квиза."]).join("\n");
   if(o.kind==="partner"){ const pb=F.partner_branch||{};
     return L1.concat(["Партнёр (вендор или интегратор)"],Object.entries(o.ans).map(([k,v])=>{ const q=(pb.questions||[]).find(x=>x.id===k)||{};
       return (q.text||k)+" "+v.map(x=>((q.options||[]).find(y=>y.code===x)||{}).label||x).join(", "); })).join("\n"); }
@@ -3275,6 +3282,7 @@ const GENIE_IMG={"src": "data:image/webp;base64,UklGRm7UAABXRUJQVlA4WAoAAAAQAAAA
     <div class="gsp"><i></i><i></i><i></i></div></div>`;
 })();
 curPose='idle';
+document.getElementById("hdrContact").onclick=()=>{ document.querySelectorAll(".modal,#idle").forEach(m=>m.remove()); if(!stack.length) stack=[intro]; go(()=>contactForm({kind:st&&st.primary?"client":"free",list:st&&st.primary?agentsFor(st.primary):[],extra:[],e:st&&st.primary?estimate():null,imp:[]})); };
 reset(); if(!restoreFromHash()) intro(); idle.arm(); flushQ();
 </script>
 </body>
